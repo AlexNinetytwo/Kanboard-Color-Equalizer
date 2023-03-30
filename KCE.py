@@ -110,18 +110,18 @@ class Main:
         Draw.redraw()
         confParser = configparser.ConfigParser()
         Organizer.creatConfigFileIfNotExist(confParser)
-        adress, username, token = Organizer.getAdressTokenAndUsername(confParser)
-        Main.mainLoop(adress, username, token)
+        address, username, token = Organizer.getaddressTokenAndUsername(confParser)
+        Main.mainLoop(address, username, token)
 
-    def mainLoop(adress, username, token):
+    def mainLoop(address, username, token):
         while True:
-            projectNames = Main.menu(adress, username, token)
+            projectNames = Main.menu(address, username, token)
             for project in projectNames:
-                Communication.equalizeColors(adress, username, token, project)
+                Communication.equalizeColors(address, username, token, project)
 
-    def menu(adress, username, token):
+    def menu(address, username, token):
         global finshString
-        myProjects = Communication.getMyProjects(adress, username, token)
+        myProjects = Communication.getMyProjects(address, username, token)
         UserIsSure = False
         while not UserIsSure:
             questions = [
@@ -153,7 +153,7 @@ class Organizer:
             pass
         else:
             confParser['API.connection.data'] = {
-                'adress': 'Insert API adress here',
+                'address': 'Insert API address here',
                 'username': 'Insert username here',
                 'token': 'Insert API token here'
                 
@@ -167,21 +167,21 @@ class Organizer:
         data = data.replace("'","")
         return data
 
-    def getAdressTokenAndUsername(confParser):
+    def getaddressTokenAndUsername(confParser):
         confParser.sections()
         confParser.read('KCE.ini')
-        adress = confParser['API.connection.data']['adress']
+        address = confParser['API.connection.data']['address']
         token = confParser['API.connection.data']['token']
         username = confParser['API.connection.data']['username']
-        return Organizer.clean(adress), Organizer.clean(username), Organizer.clean(token)
+        return Organizer.clean(address), Organizer.clean(username), Organizer.clean(token)
     
 
 
 class Communication:
 
-    def getMyProjects(adress, username, token):
+    def getMyProjects(address, username, token):
         projectList = []
-        kanboardModule = kanboard.Client(adress, username, token)
+        kanboardModule = kanboard.Client(address, username, token)
         if username == 'jsonrpc':
             myProjects = kanboardModule.get_all_projects() # Admin            
         else:
@@ -193,22 +193,28 @@ class Communication:
             projectList.append(project['name'])    
         return projectList
     
-    def equalizeColors(adress, username, token, projectName):
-        kanboardModule = kanboard.Client(adress, username, token)
-        
+    def equalizeColors(address, username, token, projectName):
+        kanboardModule = kanboard.Client(address, username, token)
         projectID = kanboardModule.get_project_by_name(name=projectName)['id']
         tasks = kanboardModule.get_all_tasks(project_id=projectID)
+        categoryColors = {}
         for task in tasks:
-            Communication.setTaskColor(kanboardModule, task)
+            categoryColors = Communication.setTaskColor(kanboardModule, task, categoryColors)
 
-    def setTaskColor(kanboardModule, task):
+    def setTaskColor(kanboardModule, task, categoryColors):
         taskID = task['id']
         categoryID = task['category_id']
         try: #if task has category
-            color = kanboardModule.get_category(category_id=categoryID)['color_id']
-            kanboardModule.update_task(id=taskID,color_id=color)
+            if categoryID in categoryColors:
+                kanboardModule.update_task(id=taskID,color_id=categoryColors[categoryID])
+            else:
+                color = kanboardModule.get_category(category_id=categoryID)['color_id']
+                kanboardModule.update_task(id=taskID,color_id=color)
+                categoryColors[categoryID] = color 
         except:
             pass
+        finally:
+            return categoryColors
 
 class Draw:
 
@@ -335,12 +341,12 @@ class Message:
         defaultTip = 'Make sure you set up the "KCE.ini" file correctly.'
         if 'HTTP Error 401' in e.args[0]:
             Message.errorMessage(' Invalid access data.', 10, defaultTip)
-        elif 'InsertAPIadress' in e.args[0]:
-            Message.errorMessage(' API adress is missing.', 10, defaultTip) 
+        elif 'InsertAPIaddress' in e.args[0]:
+            Message.errorMessage(' API address is missing.', 10, defaultTip) 
         elif 'urlopen error' in e.args[0]:
             Message.errorMessage(' A connection could not be established because the target computer refused the connection', 10)
         elif 'has no len()' in e.args[0]:
-            Message.errorMessage(' Incorrect API adress. ', 10, defaultTip)
+            Message.errorMessage(' Incorrect API address. ', 10, defaultTip)
         elif "'NoneType' object is not subscriptable" in e.args[0]:
             Message.errorMessage(' Bye!', 3)
         else:
